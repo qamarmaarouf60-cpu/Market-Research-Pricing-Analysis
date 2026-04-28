@@ -8,7 +8,7 @@ django.setup()
 
 # 2. imports Django après setup
 from apps.products.models import Product
-from scraping.spiders.jumia import fetch_jumia_html
+from scraping.spiders.jumia import fetch_jumia_search
 from scraping.parsers.jumia_parser import parse_jumia
 
 
@@ -21,8 +21,9 @@ def extract_price(price_str):
 
 
 # 4. pipeline principal
-html = fetch_jumia_html()
-products = parse_jumia(html)
+query = input("Enter product: ")
+html_pages = fetch_jumia_search(query)
+products = parse_jumia(html_pages)
 
 print(f"{len(products)} produits trouvés")
 
