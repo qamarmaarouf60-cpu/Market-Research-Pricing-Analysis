@@ -1,10 +1,13 @@
-from scraping.parsers.jumia_parser import scrape_jumia
+from scraping.spiders.jumia import fetch_jumia_search
+from scraping.parsers.jumia_parser import parse_jumia
 
-query = input("🔍 Enter product: ")
+query = input("Enter product: ")
 
-data = scrape_jumia(query)
+html_pages = fetch_jumia_search(query)
 
-print(f"\n📦 Results for: {query}\n")
+data = parse_jumia(html_pages)
+
+print(f"\nResults for: {query}\n")
 
 for p in data[:20]:
     print({
