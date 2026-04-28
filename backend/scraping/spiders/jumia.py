@@ -2,7 +2,7 @@ from playwright.sync_api import sync_playwright
 
 BASE_URL = "https://www.jumia.ma/catalog/?q={query}&page={page}"
 
-def fetch_jumia_search(query, max_pages=2):
+def fetch_jumia_search(query, max_pages=3):
     all_html = []
 
     with sync_playwright() as p:

@@ -1,62 +1,36 @@
-from playwright.sync_api import sync_playwright
+from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
 BASE_URL = "https://www.jumia.ma"
 
-def scrape_jumia(query: str):
+def parse_jumia(html_pages):
     results = []
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+    for html in html_pages:
+        soup = BeautifulSoup(html, "html.parser")
 
-        # Aller sur la recherche
-        page.goto(f"{BASE_URL}/catalog/?q={query}", wait_until="domcontentloaded")
-
-        # attendre produits
-        page.wait_for_selector("article.prd", timeout=10000)
-
-        products = page.query_selector_all("article.prd")
+        products = soup.select("article.prd")
 
         for product in products:
             try:
-                # NOM
-                name_el = product.query_selector("h3.name")
-                name = name_el.inner_text().strip() if name_el else None
+                name = product.select_one("h3.name")
+                price = product.select_one(".prc")
+                link = product.select_one("a.core")
 
-                # PRIX
-                price_el = product.query_selector(".prc")
-                price = price_el.inner_text().strip() if price_el else None
-
-                # LINK
-                link_element = product.query_selector("a.core")
-
-                if not link_element:
-                      link_element = product.query_selector("a")
-
-                link = link_element.get_attribute("href") if link_element else None
-
-                full_link = urljoin(BASE_URL, link) if link else None
-
-                # nettoyage du lien
-                full_link = None
-                if link and link.startswith("/") and "customer/account" not in link:
-                    full_link = BASE_URL + link
-
-                # éviter produits incomplets
                 if not name or not price:
                     continue
 
+                raw_link = link["href"] if link else None
+                full_link = urljoin(BASE_URL, raw_link) if raw_link else None
+
                 results.append({
-                    "name": name,
-                    "price": price,
+                    "name": name.text.strip(),
+                    "price": price.text.strip(),
                     "url": full_link,
                     "source": "Jumia"
                 })
 
-            except Exception:
+            except:
                 continue
-
-        browser.close()
 
     return results
