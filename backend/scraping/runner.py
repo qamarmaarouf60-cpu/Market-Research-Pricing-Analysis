@@ -1,39 +1,43 @@
-import os
-import django
-import re
+import os, sys, django, re
 
-# 1. IMPORTANT : activer Django
+# ajouter le dossier backend/ au path Python
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
-# 2. imports Django après setup
 from apps.products.models import Product
 from scraping.spiders.jumia import fetch_jumia_search
 from scraping.parsers.jumia_parser import parse_jumia
 
-
-# 3. fonction nettoyage prix
 def extract_price(price_str):
-    numbers = re.findall(r"[\d,.]+", price_str)
+    numbers = re.findall(r"[\d,.]+", price_str or "")
     if numbers:
         return float(numbers[0].replace(",", ""))
     return 0.0
 
+query = input("🔎 Produit à rechercher : ")
 
-# 4. pipeline principal
-query = input("Enter product: ")
-html_pages = fetch_jumia_search(query)
+html_pages = fetch_jumia_search(query=query, max_pages=2)
+print(f" {len(html_pages)} pages récupérées")
+
 products = parse_jumia(html_pages)
+print(f" {len(products)} produits extraits")
 
-print(f"{len(products)} produits trouvés")
-
+created_count = 0
 for item in products:
-    Product.objects.create(
-        name=item["name"],
-        price_text=item["price"],
-        price_value=extract_price(item["price"]),
-        source=item["source"],
-        url=item["url"]
+    obj, created = Product.objects.get_or_create(
+        url=item["url"],
+        defaults={
+            "name":        item["name"],
+            "price_text":  item["price"],
+            "price_value": extract_price(item["price"]),
+            "source":      item["source"],
+            "query":       query,
+        }
     )
+    if created:
+        created_count += 1
 
-print("Données enregistrées en base avec succès")
+print(f" {created_count} nouveaux produits sauvegardés")
+print(f" Total en base : {Product.objects.count()} produits")
