@@ -16,12 +16,19 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
 
+def home(request):
+    return JsonResponse({"message": "Market Research API is running"})
+
 urlpatterns = [
+    # Accueil
+    path('', home),
+
     # Interface d'administration Django
     path('admin/', admin.site.urls),
 
@@ -35,3 +42,4 @@ urlpatterns = [
     path('api/search/', include('apps.search.urls')),
     path('api/analytics/', include('apps.analytics.urls')),
 ]
+
