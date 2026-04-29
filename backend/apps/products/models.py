@@ -25,8 +25,10 @@ class Product(models.Model):
                     choices=SOURCE_CHOICES,
                     default="Other"
                   )
-    url         = models.URLField(max_length=1000, blank=True, null=True)
-    image_url   = models.URLField(max_length=1000, blank=True, null=True)  
+    
+    url         = models.URLField(max_length=2000, unique=True, blank=True, null=True)
+    # Augmente la taille pour éviter que le scraping plante sur une image très longue
+    image_url   = models.URLField(max_length=2000, blank=True, null=True)  
 
     # ── Lien avec la recherche ────────────────────────────────────────────────
     query       = models.CharField(                          
