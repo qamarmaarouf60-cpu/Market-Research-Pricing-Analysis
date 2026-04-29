@@ -1,16 +1,17 @@
 from playwright.sync_api import sync_playwright
 import urllib.parse
 
-# Format typique de l'URL de recherche Avito
-BASE_URL = "https://www.avito.ma/fr/maroc/{query}?p={page}"
+# ── CORRECTION : Format exact de la recherche Avito ──
+BASE_URL = "https://www.avito.ma/fr/maroc/toutes_les_categories?q={query}&p={page}"
 
 def fetch_avito_search(query, max_pages=10):
     all_html = []
     
-    # Avito gère souvent mieux les requêtes encodées (ex: "pc portable" devient "pc%20portable")
-    formatted_query = urllib.parse.quote(query)
+    # quote_plus remplace les espaces par des '+' ("Samsung Galaxy" -> "Samsung+Galaxy")
+    formatted_query = urllib.parse.quote_plus(query)
 
     with sync_playwright() as p:
+        # Tu peux mettre headless=False si tu veux voir le navigateur
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
