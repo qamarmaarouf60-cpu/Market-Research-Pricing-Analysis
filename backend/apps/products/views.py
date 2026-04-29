@@ -1,4 +1,4 @@
-from django.db.models          import Avg, Min, Max, Count, StdDev
+from django.db.models          import Avg, Min, Max, Count
 from rest_framework            import status
 from rest_framework.decorators import action
 from rest_framework.response   import Response
@@ -47,8 +47,6 @@ class ProductViewSet(ModelViewSet):
 
     queryset           = Product.objects.all()
     serializer_class   = ProductSerializer
-    
-    # ── Ajout de la classe de pagination DRF ──────────────────────────────────
     pagination_class   = StandardResultsSetPagination
 
     # ── Sélection du serializer selon l'action ────────────────────────────────
@@ -95,11 +93,6 @@ class ProductViewSet(ModelViewSet):
 
     # ── Pagination DRF propre ─────────────────────────────────────────────────
     def list(self, request, *args, **kwargs):
-        """
-        Cette méthode utilise maintenant la pagination native de DRF.
-        C'est beaucoup plus performant car la base de données ne traite 
-        que les éléments nécessaires via un vrai LIMIT/OFFSET SQL.
-        """
         queryset = self.filter_queryset(self.get_queryset())
 
         page = self.paginate_queryset(queryset)
@@ -113,11 +106,6 @@ class ProductViewSet(ModelViewSet):
     # ── Endpoint : statistiques des prix ─────────────────────────────────────
     @action(detail=False, methods=["get"], url_path="stats")
     def stats(self, request):
-        """
-        GET /api/products/stats/?query=laptop&source=Jumia
-
-        Retourne les statistiques de prix pour affichage dans le dashboard.
-        """
         qs = self.get_queryset()
 
         if not qs.exists():
@@ -130,7 +118,6 @@ class ProductViewSet(ModelViewSet):
             avg_price = Avg("price_value"),
             min_price = Min("price_value"),
             max_price = Max("price_value"),
-            std_price = StdDev("price_value"),
             count     = Count("id"),
         )
 
@@ -151,7 +138,6 @@ class ProductViewSet(ModelViewSet):
             "avg_price":  round(float(agg["avg_price"] or 0), 2),
             "min_price":  float(agg["min_price"] or 0),
             "max_price":  float(agg["max_price"] or 0),
-            "std_price":  round(float(agg["std_price"] or 0), 2),
             "by_source":  list(by_source),
             "by_category": {
                 "Bas":     low,
@@ -163,15 +149,9 @@ class ProductViewSet(ModelViewSet):
     # ── Endpoint : liste des sources disponibles ──────────────────────────────
     @action(detail=False, methods=["get"], url_path="sources")
     def sources(self, request):
-        """
-        GET /api/products/sources/
-
-        Retourne la liste des sources présentes en base.
-        Utile pour remplir le filtre "Source" dans React.
-        """
         sources = (
             Product.objects.values("source")
-                           .annotate(count=Count("id"))
-                           .order_by("-count")
+                            .annotate(count=Count("id"))
+                            .order_by("-count")
         )
         return Response(list(sources))
