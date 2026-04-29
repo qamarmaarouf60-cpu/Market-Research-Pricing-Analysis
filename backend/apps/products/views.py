@@ -1,11 +1,32 @@
-from django.db.models         import Avg, Min, Max, Count, StdDev
-from rest_framework           import status
+from django.db.models          import Avg, Min, Max, Count, StdDev
+from rest_framework            import status
 from rest_framework.decorators import action
-from rest_framework.response  import Response
-from rest_framework.viewsets  import ModelViewSet
+from rest_framework.response   import Response
+from rest_framework.viewsets   import ModelViewSet
+from rest_framework.pagination import PageNumberPagination
 
 from .models      import Product
 from .serializers import ProductSerializer, ProductListSerializer
+
+
+# ── Classe de pagination personnalisée ────────────────────────────────────────
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+    def get_paginated_response(self, data):
+        """
+        On surcharge cette méthode pour garder exactement la même structure 
+        JSON que ton ancienne pagination manuelle (pour ne pas casser le frontend React).
+        """
+        return Response({
+            'total': self.page.paginator.count,
+            'page': self.page.number,
+            'page_size': self.get_page_size(self.request),
+            'pages': self.page.paginator.num_pages,
+            'results': data
+        })
 
 
 class ProductViewSet(ModelViewSet):
@@ -26,6 +47,9 @@ class ProductViewSet(ModelViewSet):
 
     queryset           = Product.objects.all()
     serializer_class   = ProductSerializer
+    
+    # ── Ajout de la classe de pagination DRF ──────────────────────────────────
+    pagination_class   = StandardResultsSetPagination
 
     # ── Sélection du serializer selon l'action ────────────────────────────────
     def get_serializer_class(self):
@@ -69,31 +93,22 @@ class ProductViewSet(ModelViewSet):
 
         return qs
 
-    # ── Pagination simple ─────────────────────────────────────────────────────
+    # ── Pagination DRF propre ─────────────────────────────────────────────────
     def list(self, request, *args, **kwargs):
-        qs = self.get_queryset()
+        """
+        Cette méthode utilise maintenant la pagination native de DRF.
+        C'est beaucoup plus performant car la base de données ne traite 
+        que les éléments nécessaires via un vrai LIMIT/OFFSET SQL.
+        """
+        queryset = self.filter_queryset(self.get_queryset())
 
-        # Pagination manuelle  →  ?page=1&page_size=20
-        try:
-            page      = int(request.query_params.get("page", 1))
-            page_size = int(request.query_params.get("page_size", 20))
-        except ValueError:
-            page, page_size = 1, 20
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
 
-        page_size = min(page_size, 100)     # max 100 par page
-        start     = (page - 1) * page_size
-        end       = start + page_size
-        total     = qs.count()
-
-        serializer = self.get_serializer(qs[start:end], many=True)
-
-        return Response({
-            "total":     total,
-            "page":      page,
-            "page_size": page_size,
-            "pages":     (total + page_size - 1) // page_size,
-            "results":   serializer.data,
-        })
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     # ── Endpoint : statistiques des prix ─────────────────────────────────────
     @action(detail=False, methods=["get"], url_path="stats")

@@ -31,10 +31,10 @@ class ProductSerializer(serializers.ModelSerializer):
 
     # ── Validation ────────────────────────────────────────────────────────────
     def validate_price_value(self, value):
-        """Le prix ne peut pas être négatif ou nul."""
-        if value <= 0:
+        """Le prix ne peut pas être négatif (mais peut être 0 si non trouvé)."""
+        if value < 0: 
             raise serializers.ValidationError(
-                "Le prix doit être strictement positif."
+                "Le prix ne peut pas être négatif."
             )
         return value
 
