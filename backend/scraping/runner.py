@@ -16,21 +16,31 @@ from scraping.parsers.jumia_parser import parse_jumia
 from scraping.spiders.avito import fetch_avito_search
 from scraping.parsers.avito_parser import parse_avito
 
+# Import Amazon 
+from scraping.spiders.amazon import fetch_amazon_search
+from scraping.parsers.amazon_parser import parse_amazon
+
 def extract_price(price_str):
     # Enlève les espaces insécables souvent utilisés sur Avito (ex: "1 200 DH")
     price_str = price_str.replace("\xa0", "").replace(" ", "")
-    numbers = re.findall(r"[\d,.]+", price_str or "")
+    # Remplace la virgule par un point pour les prix européens (ex: Amazon "12,99€" -> "12.99")
+    price_str = price_str.replace(",", ".")
+    
+    numbers = re.findall(r"[\d.]+", price_str or "")
     if numbers:
-        return float(numbers[0].replace(",", ""))
+        try:
+            return float(numbers[0])
+        except ValueError:
+            return 0.0
     return 0.0
 
-query = input("🔎 Produit à rechercher : ")
+query = input(" Produit à rechercher : ")
 
 # --- 1. SCRAPING JUMIA ---
 print("\n[1/2] --- Scraping Jumia ---")
 jumia_pages = fetch_jumia_search(query=query, max_pages=10)
 jumia_products = parse_jumia(jumia_pages)
-print(f"✅ {len(jumia_products)} produits extraits de Jumia")
+print(f" {len(jumia_products)} produits extraits de Jumia")
 
 # --- 2. SCRAPING AVITO ---
 print("\n[2/2] --- Scraping Avito ---")
@@ -38,8 +48,14 @@ avito_pages = fetch_avito_search(query=query, max_pages=10)
 avito_products = parse_avito(avito_pages)
 print(f" {len(avito_products)} produits extraits de Avito")
 
+# --- 3. SCRAPING AMAZON ---
+print("\n[3/3] --- Scraping Amazon ---")
+amazon_pages = fetch_amazon_search(query=query, max_pages=10)
+amazon_products = parse_amazon(amazon_pages)
+print(f" {len(amazon_products)} produits extraits d'Amazon")
+
 # --- 3. FUSION ET SAUVEGARDE ---
-all_products = jumia_products + avito_products
+all_products = jumia_products + avito_products + amazon_products
 
 
 print("\n--- Sauvegarde en base de données ---")
@@ -64,5 +80,5 @@ for item in all_products:
     if created:
         created_count += 1
 
-print(f"🎉 {created_count} nouveaux produits sauvegardés")
-print(f"📊 Total en base : {Product.objects.count()} produits")
+print(f" {created_count} nouveaux produits sauvegardés")
+print(f" Total en base : {Product.objects.count()} produits")
