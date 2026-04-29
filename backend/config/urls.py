@@ -27,7 +27,7 @@ def home(request):
 
 urlpatterns = [
     # Accueil
-    path('', home),
+    path('', home, name='home'),
 
     # Interface d'administration Django
     path('admin/', admin.site.urls),
