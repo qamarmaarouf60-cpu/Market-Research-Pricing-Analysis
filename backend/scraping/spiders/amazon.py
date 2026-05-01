@@ -3,44 +3,57 @@ import time
 
 def fetch_amazon_search(query, max_pages=10):
     html_pages = []
-    base_url = f"https://www.amazon.fr/s?k={query}"
+    base_url = f"https://www.amazon.fr/s?k={query.replace(' ', '+')}"
 
     with sync_playwright() as p:
         # On peut repasser en headless=True une fois que ça marche bien
         browser = p.chromium.launch(headless=False) 
         
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+            viewport={"width": 1280, "height": 800}
         )
+        
+        # Désactiver le flag "webdriver" pour paraître humain
+        context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
         page = context.new_page()
 
         for p_num in range(1, max_pages + 1):
             url = f"{base_url}&page={p_num}"
+            print(f"🔎 [Amazon] Searching page {p_num}: {url}")
+            
             try:
-                page.goto(url, timeout=60000)
+                # Utiliser wait_until="networkidle" pour être sûr que tout est chargé
+                page.goto(url, timeout=60000, wait_until="domcontentloaded")
                 
-                # ── GESTION DU BANDEAU COOKIES (Nouveau) ──
-                # On essaie de voir si le bouton "Accepter les cookies" (ou refuser) est là
-                try:
-                    # 'sp-cc-rejectall-link' est souvent l'ID pour "Continuer sans accepter"
-                    # 'sp-cc-accept' est l'ID pour "Accepter"
-                    cookie_btn = page.locator("#sp-cc-accept") 
-                    if cookie_btn.is_visible(timeout=3000): # On attend max 3 sec
-                        print("🍪 Bandeau de cookies détecté : clic automatique !")
-                        cookie_btn.click()
-                        time.sleep(1) # Laisse le temps au bandeau de disparaître
-                except Exception:
-                    pass # Pas de cookies, on continue normalement
-                # ──────────────────────────────────────────
+                # Attente aléatoire pour simuler un humain
+                time.sleep(3)
 
-                # On attend que les résultats de recherche s'affichent
-                page.wait_for_selector('div[data-component-type="s-search-result"]', timeout=15000)
+                # Gestion des cookies
+                try:
+                    if page.locator("#sp-cc-accept").is_visible(timeout=2000):
+                        page.click("#sp-cc-accept")
+                except:
+                    pass
+
+                # --- FIX DU SÉLECTEUR ---
+                # On attend n'importe quel item de résultat, pas seulement le div spécifique
+                page.wait_for_selector('.s-result-item', timeout=15000)
                 
-                time.sleep(2) 
+                # Scroll vers le bas pour charger les images (lazy loading)
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight/2)")
+                time.sleep(1)
                 
                 html_pages.append(page.content())
+                
             except Exception as e:
-                print(f"⚠️ Erreur sur Amazon (page {p_num}). : {e}")
+                # Si on timeout, on vérifie si c'est un CAPTCHA
+                if "captcha" in page.url or "Robot Check" in page.content():
+                    print(" Bloqué par un CAPTCHA Amazon. Résous-le manuellement dans la fenêtre !")
+                    time.sleep(20) # Te laisse le temps de le résoudre à la main
+                else:
+                    print(f" Erreur Amazon page {p_num}: {e}")
                 break
 
         browser.close()
