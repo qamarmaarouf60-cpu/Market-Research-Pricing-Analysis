@@ -15,7 +15,7 @@ from scraping.parsers.avito_parser import parse_avito
 from scraping.spiders.amazon import fetch_amazon_search
 from scraping.parsers.amazon_parser import parse_amazon
 
-from scraping.spiders.ebay_spider import fetch_ebay_search
+from scraping.spiders.ebay import fetch_ebay_search
 from scraping.parsers.ebay_parser import parse_ebay
 
 
