@@ -25,9 +25,22 @@ from rest_framework_simplejwt.views import (
 def home(request):
     return JsonResponse({"message": "Market Research API is running"})
 
+def api_root(request):
+    return JsonResponse({
+        "message": "Bienvenue sur l'API Market Research",
+        "endpoints": {
+            "products": "/api/products/",
+            "search": "/api/search/?q={query}",
+            "analytics": "/api/analytics/stats/",
+            "auth_token": "/api/token/"
+        }
+    })
+
 urlpatterns = [
     # Accueil
     path('', home, name='home'),
+
+    path('api/', api_root),
 
     # Interface d'administration Django
     path('admin/', admin.site.urls),
