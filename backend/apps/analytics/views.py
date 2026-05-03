@@ -5,6 +5,7 @@ from rest_framework import status
 from django.db.models import Avg, Max, Min, Count
 from apps.products.models import Product
 from apps.products.serializers import ProductListSerializer
+from apps.analytics.models import PriceSnapshot # <-- NOUVEL IMPORT ICI
 
 
 class GlobalStatsView(APIView):
@@ -196,13 +197,17 @@ class ScrapeAndAnalyzeView(APIView):
             "query": query,
         }, status=status.HTTP_202_ACCEPTED)
 
+    # ---> VOICI LA FONCTION QUI MANQUAIT <---
     def _run_scrape_pipeline(self, query):
+        """Exécute le scraping puis retire le job de la liste une fois terminé."""
         try:
+            # On appelle runner.py qui va gérer le scraping en parallèle ET le PriceSnapshot
             from scraping.runner import run_scraping
             run_scraping(query)
         except Exception as e:
             print(f"[ScrapeAndAnalyze] Scraping error: {e}")
         finally:
+            # Très important : on libère le job à la fin pour qu'on puisse relancer une recherche plus tard
             self.__class__._running_jobs.pop(query, None)
 
 
@@ -216,6 +221,7 @@ class JobStatusView(APIView):
         if not query:
             return Response({"detail": "Provide a 'query' param."}, status=400)
 
+        # Vérifie si le mot clé est encore dans le dictionnaire des tâches en cours
         is_running = query in ScrapeAndAnalyzeView._running_jobs
         count = Product.objects.filter(query__icontains=query).count()
 
