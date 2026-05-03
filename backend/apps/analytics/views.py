@@ -94,7 +94,6 @@ class DistributionView(APIView):
             for i in range(len(counts))
         ]
 
-        import numpy as np2
         return Response({
             "total": len(prices_arr),
             "mean": round(float(prices_arr.mean()), 2),
