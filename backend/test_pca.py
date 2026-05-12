@@ -43,7 +43,7 @@ def test_pca():
     # =========================
     # 🔹 PCA
     # =========================
-    df, pca_model, explained = run_pca(df, n_components=2)
+    df, pca_model, explained, feature_names = run_pca(df, n_components=2)
 
     print("\nPCA Results:")
     print(df[["name", "pca_1", "pca_2"]])
@@ -55,9 +55,7 @@ def test_pca():
     # 🔹 PCA SUMMARY
     # =========================
     if pca_model is not None:
-        feature_df, feature_names = prepare_features(df)
         summary = get_pca_summary(pca_model, feature_names)
-
         print("\nPCA Feature Contribution:")
         print(summary)
 

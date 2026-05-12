@@ -40,7 +40,7 @@ def run_pca(df, n_components=2):
 
     feature_df, feature_names = prepare_features(df)
     if feature_df is None or feature_df.empty:
-        return df, None, []
+        return df, None, [], []
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(feature_df)
@@ -57,7 +57,7 @@ def run_pca(df, n_components=2):
     print(f"[PCA] Explained variance: {[round(float(v)*100, 2) for v in explained]}%")
     print(f"[PCA] Total variance explained: {round(float(sum(explained))*100, 2)}%")
 
-    return df, pca, explained
+    return df, pca, explained, feature_names
 
 
 def get_pca_summary(pca, feature_names):

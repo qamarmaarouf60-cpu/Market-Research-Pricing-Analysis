@@ -5,20 +5,33 @@ from sklearn.ensemble import IsolationForest
 
 def run_isolation_forest(df, column="price_log", contamination=0.05):
     print(f"[IsolationForest] Starting anomaly detection...")
-
     X = df[[column]].dropna()
     df = df.loc[X.index].copy()
 
-    # 🔥 FIX: don't fail silently
     if len(df) < 10:
-        print(f"[IsolationForest] Not enough data ({len(df)} rows). Skipping model.")
-
-        # still create columns so pipeline doesn't break
         df["is_anomaly"] = False
-        df["anomaly_score"] = 1
-        df["anomaly_confidence"] = 0
-
+        df["anomaly_score"] = 1.0
+        df["anomaly_confidence"] = 0.0
         return df, None
+
+    model = IsolationForest(
+        contamination=contamination,
+        random_state=42,
+        n_estimators=100
+    )
+    preds = model.fit_predict(X)           # -1 = anomalie, 1 = normal
+    scores = model.decision_function(X)    # plus bas = plus suspect
+
+    df["is_anomaly"]         = preds == -1
+    df["anomaly_score"]      = scores
+    # Normalise en [0,1] : 1 = très suspect
+    df["anomaly_confidence"] = 1 - (
+        (scores - scores.min()) / (scores.max() - scores.min() + 1e-9)
+    )
+
+    n = df["is_anomaly"].sum()
+    print(f"[IsolationForest] Detected {n} anomalies out of {len(df)} products")
+    return df, model
 
 def get_anomaly_report(df):
     """Return structured anomaly report."""
@@ -47,8 +60,8 @@ def get_anomaly_report(df):
 def _guess_reason(row):
     price = row.get("price_mad", 0)
 
-    if price < 10:
+    if price < 50:
         return "Prix trop bas (suspect)"
-    if price > 100000:
+    if price > 200000:
         return "Prix extrêmement élevé"
     return "Anomalie statistique"
