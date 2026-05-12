@@ -141,8 +141,8 @@ def run_pipeline(query=None, n_clusters=3, contamination=0.05, save_report=True)
     # 7. PCA
     # =========================
     print("── Step 7: PCA ──")
-    df, pca_model, explained = run_pca(df, n_components=2)
-    pca_summary = get_pca_summary(pca_model, df.columns)
+    df, pca_model, explained, feature_names = run_pca(df, n_components=2)
+    pca_summary = get_pca_summary(pca_model, feature_names) if pca_model else []
     print()
 
     # =========================
