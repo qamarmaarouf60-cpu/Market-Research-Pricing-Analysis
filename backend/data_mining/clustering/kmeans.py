@@ -55,8 +55,10 @@ def run_kmeans(df, n_clusters=3, column="price_log", auto_k=False):
     X = df[[column]].dropna()
 
     if len(X) < n_clusters:
-        print(f"[KMeans] Not enough data ({len(X)} products) for {n_clusters} clusters.")
-        return df
+        print(f"[KMeans] Not enough data.")
+        df["cluster"]       = 0
+        df["price_segment"] = "Bas de gamme"
+        return df, None
 
     if auto_k:
         n_clusters = find_optimal_k(df, column)

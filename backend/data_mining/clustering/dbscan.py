@@ -15,7 +15,9 @@ def run_dbscan(df, column="price_log", eps=0.5, min_samples=3):
     X = df[[column]].dropna().values
     if len(X) < min_samples:
         print(f"[DBSCAN] Not enough data ({len(X)} products).")
-        return df
+        df["dbscan_cluster"] = 0
+        df["dbscan_label"]   = "Cluster 0"
+        return df, None
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
