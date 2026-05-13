@@ -103,7 +103,7 @@ export default function Search() {
                   <span className="source-tag">{p.source}</span>
                   <p className="product-name">{p.name}</p>
                   <div className="product-footer">
-                    <span className="product-price">{p.price_value?.toFixed(2)} MAD</span>
+                    <span className="product-price">{p.price_value ? parseFloat(p.price_value).toFixed(2) : "—"} MAD</span>
                     {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer">Voir →</a>}
                   </div>
                 </div>
