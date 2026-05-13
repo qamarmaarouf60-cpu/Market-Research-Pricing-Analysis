@@ -1,43 +1,58 @@
-from playwright.sync_api import sync_playwright
-import urllib.parse
+import requests
+import os
+from dotenv import load_dotenv
 
-BASE_URL = "https://www.ebay.com/sch/i.html?_nkw={query}&_pgn={page}"
+load_dotenv(os.path.join(os.path.dirname(__file__), "../../../backend/.env"))
+load_dotenv()
 
-def fetch_ebay_search(query, max_pages=10):
-    all_html = []
-    formatted_query = urllib.parse.quote_plus(query)
+APP_ID = os.getenv("EBAY_APP_ID")
+CERT_ID = os.getenv("EBAY_CERT_ID")
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-blink-features=AutomationControlled"]
-        )
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            viewport={"width": 1280, "height": 800},
-            locale="en-US",
-            extra_http_headers={
-                "Accept-Language": "en-US,en;q=0.9",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            }
-        )
+def get_access_token():
+    import base64
+    credentials = base64.b64encode(f"{APP_ID}:{CERT_ID}".encode()).decode()
+    response = requests.post(
+        "https://api.sandbox.ebay.com/identity/v1/oauth2/token",
+        headers={
+            "Authorization": f"Basic {credentials}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        data="grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope",
+    )
+    return response.json().get("access_token")
 
-        # Hide webdriver flag
-        context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+def fetch_ebay_search(query, max_pages=3):
+    print(f"🔎 [eBay API] Searching: {query}")
+    token = get_access_token()
+    if not token:
+        print("❌ eBay: failed to get access token")
+        return []
 
-        page = context.new_page()
+    all_items = []
+    limit = 50
 
-        for i in range(1, max_pages + 1):
-            url = BASE_URL.format(query=formatted_query, page=i)
-            print(f"🔎 [eBay] Searching: {url}")
+    for page in range(1, max_pages + 1):
+        offset = (page - 1) * limit
+        try:
+            response = requests.get(
+                "https://api.sandbox.ebay.com/buy/browse/v1/item_summary/search",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
+                },
+                params={
+                    "q": query,
+                    "limit": limit,
+                    "offset": offset,
+                },
+            )
+            data = response.json()
+            items = data.get("itemSummaries", [])
+            print(f"✅ [eBay API] Page {page}: {len(items)} items")
+            all_items.extend(items)
+            if len(items) < limit:
+                break
+        except Exception as e:
+            print(f"❌ eBay page {page} error: {e}")
 
-            try:
-                page.goto(url, timeout=60000, wait_until="domcontentloaded")
-                page.wait_for_timeout(3000)
-                all_html.append(page.content())
-            except Exception as e:
-                print(f"❌ Erreur page {i} eBay : {e}")
-
-        browser.close()
-
-    return all_html
+    return all_items
