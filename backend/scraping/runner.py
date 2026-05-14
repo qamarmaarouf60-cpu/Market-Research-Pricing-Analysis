@@ -5,7 +5,6 @@ import re
 import concurrent.futures
 from django.db.models import Avg, Min, Max
 
-# Configuration de l'environnement Django
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
@@ -13,7 +12,6 @@ django.setup()
 from apps.products.models import Product
 from apps.analytics.models import PriceSnapshot
 
-# Imports des scrapers
 from scraping.spiders.jumia import fetch_jumia_search
 from scraping.parsers.jumia_parser import parse_jumia
 from scraping.spiders.avito import fetch_avito_search
@@ -34,8 +32,12 @@ def extract_price(price_str):
             return 0.0
     return 0.0
 
+def is_relevant(item, query):
+    name = item.get("name", "").lower()
+    main_word = query.lower().split()[0]
+    return main_word in name
+
 def scrape_source(name, fetch_func, parse_func, query, max_pages):
-    """Fonction isolée pour scraper une source spécifique."""
     print(f"--- [Début] {name} ---")
     try:
         pages = fetch_func(query=query, max_pages=max_pages)
@@ -47,9 +49,8 @@ def scrape_source(name, fetch_func, parse_func, query, max_pages):
         return []
 
 def run_scraping(query, max_pages=10):
-    """Pipeline principal : Scraping Parallèle -> Sauvegarde -> Analyse."""
     print(f"\n🚀 Lancement du scraping global pour : '{query}'")
-    
+
     all_products_data = []
     sources = [
         ("Jumia", fetch_jumia_search, parse_jumia),
@@ -58,7 +59,7 @@ def run_scraping(query, max_pages=10):
         ("eBay", fetch_ebay_search, parse_ebay),
     ]
 
-    # 1. SCRAPING PARALLÈLE (Multi-threading)
+    # 1. SCRAPING PARALLÈLE
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(sources)) as executor:
         futures = [
             executor.submit(scrape_source, name, fetch, parse, query, max_pages)
@@ -67,18 +68,24 @@ def run_scraping(query, max_pages=10):
         for future in concurrent.futures.as_completed(futures):
             all_products_data.extend(future.result())
 
-    # 2. SAUVEGARDE EN BASE DE DONNÉES
-    print(f"\n💾 Sauvegarde de {len(all_products_data)} produits potentiels...")
+    # 2. FILTRAGE PAR PERTINENCE
+    filtered = [item for item in all_products_data if is_relevant(item, query)]
+    print(f"🔍 {len(filtered)}/{len(all_products_data)} produits pertinents après filtrage.")
+
+    # 3. SAUVEGARDE EN BASE DE DONNÉES
+    print(f"\n💾 Sauvegarde de {len(filtered)} produits...")
     created_count = 0
-    for item in all_products_data:
+    for item in filtered:
         if not item.get("url"): continue
-        
+
+        price_value = item.get("price_value") or extract_price(item.get("price", ""))
+
         obj, created = Product.objects.get_or_create(
             url=item["url"],
             defaults={
                 "name": item["name"],
-                "price_text": item["price"],
-                "price_value": extract_price(item["price"]),
+                "price_text": item.get("price", ""),
+                "price_value": price_value,
                 "image_url": item.get("image_url"),
                 "source": item["source"],
                 "query": query,
@@ -88,7 +95,7 @@ def run_scraping(query, max_pages=10):
 
     print(f"✅ {created_count} nouveaux produits ajoutés.")
 
-    # 3. GÉNÉRATION DU SNAPSHOT ANALYTIQUE (Amélioration)
+    # 4. SNAPSHOT ANALYTIQUE
     print(f"\n📊 Génération des statistiques pour '{query}'...")
     stats = Product.objects.filter(query=query).aggregate(
         avg_p=Avg('price_value'),
@@ -104,6 +111,6 @@ def run_scraping(query, max_pages=10):
             max_price=round(stats['max_p'], 2),
             count=Product.objects.filter(query=query).count()
         )
-        print(f"📈 Snapshot enregistré avec succès !")
-    
+        print(f"📈 Snapshot enregistré.")
+
     print("\n🏁 Opération terminée.")
