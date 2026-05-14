@@ -30,8 +30,9 @@ export default function History() {
           <table className="data-table">
             <thead><tr><th>#</th><th>Requête</th><th>Date</th></tr></thead>
             <tbody>
-              {history.map((h, i) => (
+              {history.reverse().map((h, i) => (
                 <tr key={h.id}>
+                  <td>{history.length - i}</td>
                   <td>{i + 1}</td>
                   <td><strong>{h.query}</strong></td>
                   <td>{new Date(h.created_at).toLocaleString("fr-FR")}</td>

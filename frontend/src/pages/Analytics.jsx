@@ -136,7 +136,7 @@ export default function Analytics() {
                 <div key={i} className="anomaly-item">
                   <span>⚠ </span>
                   <span>{a.name || "Produit"}</span>
-                  <strong> — {p.price_value ? parseFloat(p.price_value).toFixed(2) : "—"} MAD</strong>
+                  <strong> — {a.price_value ? parseFloat(p.price_value).toFixed(2) : "—"} MAD</strong>
                 </div>
               )) : <p className="empty-msg">Aucune anomalie.</p>}
             </div>
